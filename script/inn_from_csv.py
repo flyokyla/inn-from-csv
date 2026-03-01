@@ -270,7 +270,7 @@ async def process_dataframe(
         on_captcha: async callable that waits until captcha is solved (replaces input())
         stop_event: if set, stops processing
     """
-    df.columns = [c.strip() for c in df.columns]
+    df.columns = [str(c).strip() for c in df.columns]
 
     has_docdt = bool(col_docdt) and col_docdt in df.columns
 

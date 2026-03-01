@@ -362,7 +362,7 @@ async def handle_map(request: Request):
         return HTMLResponse("Файл не найден", status_code=404)
 
     df = read_file(filepath)
-    columns = [c.strip() for c in df.columns.tolist()]
+    columns = [str(c).strip() for c in df.columns.tolist()]
     return page_mapping(filename, columns)
 
 
@@ -409,7 +409,7 @@ async def handle_start(request: Request):
     result_path = os.path.join(RESULT_DIR, result_name)
 
     df = read_file(filepath)
-    df.columns = [c.strip() for c in df.columns]
+    df.columns = [str(c).strip() for c in df.columns]
 
     async def on_progress(idx, total, status, fio, inn):
         tasks[task_id]["events"].append({
