@@ -9,7 +9,7 @@ URL = "https://service.nalog.ru/inn.do"
 WAIT_INN_TIMEOUT_MS    = 120_000
 WAIT_CAPTCHA_TIMEOUT_MS = 120_000
 
-PAUSE_BETWEEN_REQUESTS = 1по  # seconds between requests
+PAUSE_BETWEEN_REQUESTS = 10  # seconds between requests
 
 CAPTCHA_TEXTS = [
     "ВВЕДИТЕ ЦИФРЫ С КАРТИНКИ",

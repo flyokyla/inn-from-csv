@@ -5,24 +5,34 @@ echo   ИНН Парсер — Установка зависимостей
 echo ========================================
 echo.
 
-:: Check Python
+:: Check Python — try "python" first, then "py"
+set PYTHON_CMD=
 python --version >nul 2>&1
-if errorlevel 1 goto :no_python
+if not errorlevel 1 set PYTHON_CMD=python
+if not defined PYTHON_CMD (
+    py --version >nul 2>&1
+    if not errorlevel 1 set PYTHON_CMD=py
+)
+if not defined PYTHON_CMD goto :no_python
 
+echo Найден Python: %PYTHON_CMD%
+%PYTHON_CMD% --version
+
+echo.
 echo [1/3] Устанавливаю Python-зависимости...
-pip install -r requirements.txt
+%PYTHON_CMD% -m pip install -r requirements.txt
 if errorlevel 1 goto :pip_fail
 
 echo.
 echo [2/3] Устанавливаю браузер Chromium для Playwright...
-playwright install chromium
+%PYTHON_CMD% -m playwright install chromium
 if errorlevel 1 goto :chromium_fail
 
 echo.
 echo [3/3] Готово!
 echo ========================================
 echo   Для запуска используйте start.bat
-echo   или: python script\inn_web.py
+echo   или: %PYTHON_CMD% script\inn_web.py
 echo ========================================
 echo.
 pause
