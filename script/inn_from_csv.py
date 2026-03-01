@@ -9,7 +9,7 @@ URL = "https://service.nalog.ru/inn.do"
 WAIT_INN_TIMEOUT_MS    = 120_000
 WAIT_CAPTCHA_TIMEOUT_MS = 120_000
 
-PAUSE_BETWEEN_REQUESTS = 10  # seconds between requests
+PAUSE_BETWEEN_REQUESTS = 1по  # seconds between requests
 
 CAPTCHA_TEXTS = [
     "ВВЕДИТЕ ЦИФРЫ С КАРТИНКИ",
@@ -252,6 +252,7 @@ async def process_dataframe(
     col_inn: str = COL_INN_DEFAULT,
     on_progress=None,
     on_captcha=None,
+    on_consent=None,
     stop_event: asyncio.Event = None,
 ):
     """
@@ -259,15 +260,15 @@ async def process_dataframe(
 
     Args:
         df: DataFrame with person data
-        output_path: path to save result CSV
+        output_path: path to save result XLSX
         col_fio: column name for full name
         col_bdate: column name for birth date
         col_passport: column name for passport series+number
         col_docdt: column name for passport issue date (empty = skip)
         col_inn: column name where INN values will be written (default "ИНН")
         on_progress: async callback(idx, total, status, fio, inn)
-            status: "skip" | "ok" | "not_found" | "error" | "captcha" | "processing"
-        on_captcha: async callable that waits until captcha is solved (replaces input())
+        on_captcha: async callable that waits until captcha is solved
+        on_consent: async callback() called when consent dialog is detected on first visit
         stop_event: if set, stops processing
     """
     df.columns = [str(c).strip() for c in df.columns]
@@ -289,6 +290,17 @@ async def process_dataframe(
             locale="ru-RU",
         )
         page = await context.new_page()
+
+        # Check for consent dialog on first visit
+        await page.goto(URL, wait_until="domcontentloaded")
+        consent_loc = page.get_by_text("согласие на обработку персональных данных")
+        if await consent_loc.count() > 0:
+            if on_consent:
+                await on_consent()
+            # Wait until the main form appears (means consent was given)
+            await page.locator('input[name="fam"], input#fam').wait_for(
+                state="visible", timeout=300_000
+            )
 
         total = len(df)
         for idx, row in df.iterrows():

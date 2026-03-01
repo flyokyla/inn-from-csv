@@ -79,7 +79,12 @@ STYLE = """
   .captcha-alert p { margin-bottom: 12px; font-weight: 600; }
   .actions { display: flex; gap: 12px; margin-top: 24px; align-items: center; }
   .filename { font-size: 13px; color: #666; margin-top: 8px; }
-  .footer { text-align: center; color: #999; font-size: 12px; padding: 24px 0; }
+  .footer { text-align: center; color: #999; font-size: 12px; padding: 24px 0; margin-top: auto; }
+  body { display: flex; flex-direction: column; }
+  .consent-alert { background: #dfe6e9; border: 2px solid #636e72; border-radius: 8px; padding: 16px;
+                   margin: 16px 0; text-align: center; }
+  .consent-alert p { margin-bottom: 12px; font-weight: 600; }
+  .consent-alert .hint { font-size: 13px; color: #636e72; font-weight: normal; }
 </style>
 """
 
@@ -231,6 +236,11 @@ def page_progress(task_id: str):
       <div class="stat"><div class="num" id="sTotal">0</div><div class="lbl">Всего</div></div>
     </div>
 
+    <div class="consent-alert" id="consentAlert" style="display:none">
+      <p>В окне браузера Playwright появился запрос на согласие обработки персональных данных.</p>
+      <p class="hint">Подтвердите согласие вручную в окне браузера, после чего обработка начнётся автоматически.</p>
+    </div>
+
     <div class="captcha-alert" id="captchaAlert">
       <p>Обнаружена капча! Решите её в окне браузера Playwright, затем нажмите кнопку ниже.</p>
       <button onclick="captchaDone()" class="btn-success">Капча решена, продолжить</button>
@@ -254,7 +264,12 @@ let okCount = 0, skipCount = 0, errCount = 0, totalRows = 0, processed = 0;
 
 const es = new EventSource("/progress/" + taskId);
 
+es.addEventListener("consent", (e) => {{
+  document.getElementById('consentAlert').style.display = "block";
+}});
+
 es.addEventListener("progress", (e) => {{
+  document.getElementById('consentAlert').style.display = "none";
   const d = JSON.parse(e.data);
   totalRows = d.total;
   document.getElementById('sTotal').textContent = totalRows;
@@ -421,6 +436,12 @@ async def handle_start(request: Request):
         captcha_event.clear()
         await captcha_event.wait()
 
+    async def on_consent():
+        tasks[task_id]["events"].append({
+            "type": "consent",
+            "data": {}
+        })
+
     async def run_task():
         try:
             result = await process_dataframe(
@@ -428,6 +449,7 @@ async def handle_start(request: Request):
                 col_inn=col_inn,
                 on_progress=on_progress,
                 on_captcha=on_captcha,
+                on_consent=on_consent,
                 stop_event=stop_event,
             )
             tasks[task_id]["events"].append({
