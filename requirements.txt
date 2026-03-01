@@ -1,0 +1,6 @@
+pandas
+playwright
+starlette
+uvicorn
+sse-starlette
+openpyxl
