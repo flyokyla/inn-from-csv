@@ -23,7 +23,7 @@ NOT_FOUND_TEXTS = [
 
 DATE_RE = re.compile(r"^\d{2}\.\d{2}\.\d{4}$")
 
-COL_INN = "ИНН"
+COL_INN_DEFAULT = "ИНН"
 
 
 # ── Utility functions ────────────────────────────────────────────
@@ -249,6 +249,7 @@ async def process_dataframe(
     col_bdate: str,
     col_passport: str,
     col_docdt: str = "",
+    col_inn: str = COL_INN_DEFAULT,
     on_progress=None,
     on_captcha=None,
     stop_event: asyncio.Event = None,
@@ -263,6 +264,7 @@ async def process_dataframe(
         col_bdate: column name for birth date
         col_passport: column name for passport series+number
         col_docdt: column name for passport issue date (empty = skip)
+        col_inn: column name where INN values will be written (default "ИНН")
         on_progress: async callback(idx, total, status, fio, inn)
             status: "skip" | "ok" | "not_found" | "error" | "captcha" | "processing"
         on_captcha: async callable that waits until captcha is solved (replaces input())
@@ -272,8 +274,8 @@ async def process_dataframe(
 
     has_docdt = bool(col_docdt) and col_docdt in df.columns
 
-    if COL_INN not in df.columns:
-        df[COL_INN] = ""
+    if col_inn not in df.columns:
+        df[col_inn] = ""
 
     ok = 0
     skipped = 0
@@ -294,7 +296,7 @@ async def process_dataframe(
                 break
 
             # Already has INN — skip
-            if str(row.get(COL_INN, "")).strip():
+            if str(row.get(col_inn, "")).strip():
                 continue
 
             fio       = row[col_fio]
@@ -303,9 +305,9 @@ async def process_dataframe(
             docdt_raw = row[col_docdt] if has_docdt else ""
 
             if not row_has_enough_data(fio, bdate_raw, pass_raw):
-                df.at[idx, COL_INN] = "-"
+                df.at[idx, col_inn] = "-"
                 skipped += 1
-                df.to_csv(output_path, sep=";", index=False, encoding="utf-8-sig")
+                df.to_excel(output_path, index=False, engine="openpyxl")
                 if on_progress:
                     await on_progress(idx, total, "skip", fio, "-")
                 continue
@@ -339,9 +341,9 @@ async def process_dataframe(
 
                     if inn_task in done and not inn_task.cancelled():
                         inn = inn_task.result()
-                        df.at[idx, COL_INN] = inn
+                        df.at[idx, col_inn] = inn
                         ok += 1
-                        df.to_csv(output_path, sep=";", index=False, encoding="utf-8-sig")
+                        df.to_excel(output_path, index=False, engine="openpyxl")
                         captcha_task.cancel()
                         not_found_task.cancel()
                         if on_progress:
@@ -352,9 +354,9 @@ async def process_dataframe(
                     if not_found_task in done:
                         inn_task.cancel()
                         captcha_task.cancel()
-                        df.at[idx, COL_INN] = "-"
+                        df.at[idx, col_inn] = "-"
                         skipped += 1
-                        df.to_csv(output_path, sep=";", index=False, encoding="utf-8-sig")
+                        df.to_excel(output_path, index=False, engine="openpyxl")
                         if on_progress:
                             await on_progress(idx, total, "not_found", fio, "-")
                         await asyncio.sleep(PAUSE_BETWEEN_REQUESTS)
@@ -363,7 +365,7 @@ async def process_dataframe(
                     if captcha_task in done:
                         inn_task.cancel()
                         not_found_task.cancel()
-                        df.to_csv(output_path, sep=";", index=False, encoding="utf-8-sig")
+                        df.to_excel(output_path, index=False, engine="openpyxl")
                         if on_progress:
                             await on_progress(idx, total, "captcha", fio, "")
                         if on_captcha:
@@ -374,9 +376,9 @@ async def process_dataframe(
                         continue
 
             except Exception as e:
-                df.at[idx, COL_INN] = f"ERROR: {e}"
+                df.at[idx, col_inn] = f"ERROR: {e}"
                 fail += 1
-                df.to_csv(output_path, sep=";", index=False, encoding="utf-8-sig")
+                df.to_excel(output_path, index=False, engine="openpyxl")
                 if on_progress:
                     await on_progress(idx, total, "error", fio, str(e))
 

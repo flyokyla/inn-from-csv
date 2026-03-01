@@ -48,7 +48,7 @@ STYLE = """
   .upload-area p { color: #666; }
   .upload-area .formats { font-size: 12px; color: #999; margin-top: 8px; }
   label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
-  select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
+  select, input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
            background: #fff; margin-bottom: 16px; }
   .optional-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .optional-row input[type=checkbox] { width: 18px; height: 18px; }
@@ -126,6 +126,12 @@ fi.addEventListener('change', () => {{
 
 def page_mapping(filename: str, columns: list):
     opts = "".join(f'<option value="{c}">{c}</option>' for c in columns)
+    # Default output name: original filename (without uuid prefix and extension) + _with_inn
+    # filename format: "abcd1234_original.csv" -> take part after first underscore, strip extension
+    parts = filename.split("_", 1)
+    original_base = os.path.splitext(parts[1])[0] if len(parts) > 1 else os.path.splitext(filename)[0]
+    default_output = f"{original_base}_with_inn"
+
     return HTMLResponse(f"""<!DOCTYPE html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Выбор колонок — ИНН Парсер</title>{STYLE}</head><body>
@@ -151,6 +157,20 @@ def page_mapping(filename: str, columns: list):
       </div>
       <select name="col_docdt" id="sel_docdt" disabled>{opts}</select>
 
+      <hr style="border:none; border-top:1px solid #eee; margin: 8px 0 16px;">
+
+      <label>Колонка для записи ИНН</label>
+      <div class="optional-row">
+        <input type="checkbox" id="use_new_inn_col" name="use_new_inn_col" value="1" checked>
+        <label for="use_new_inn_col" style="margin-bottom:0">Добавить новую колонку &laquo;ИНН&raquo;</label>
+      </div>
+      <select name="col_inn_target" id="sel_inn_target" disabled>{opts}</select>
+
+      <hr style="border:none; border-top:1px solid #eee; margin: 8px 0 16px;">
+
+      <label>Название итогового файла</label>
+      <input type="text" name="output_name" id="output_name" value="{default_output}">
+
       <button type="submit">Начать парсинг</button>
     </form>
   </div>
@@ -159,6 +179,11 @@ def page_mapping(filename: str, columns: list):
 const cb = document.getElementById('use_docdt');
 const sel = document.getElementById('sel_docdt');
 cb.addEventListener('change', () => {{ sel.disabled = !cb.checked; }});
+
+// INN column target toggle
+const cbInn = document.getElementById('use_new_inn_col');
+const selInn = document.getElementById('sel_inn_target');
+cbInn.addEventListener('change', () => {{ selInn.disabled = cbInn.checked; }});
 
 // Auto-select columns by common names
 const selects = {{
@@ -350,6 +375,19 @@ async def handle_start(request: Request):
     use_docdt = form.get("use_docdt", "")
     col_docdt = form.get("col_docdt", "") if use_docdt else ""
 
+    # INN column target
+    use_new_inn_col = form.get("use_new_inn_col", "")
+    col_inn = "ИНН" if use_new_inn_col else form.get("col_inn_target", "ИНН")
+
+    # Output filename
+    output_name = form.get("output_name", "").strip()
+    if not output_name:
+        base, _ext = os.path.splitext(filename)
+        output_name = f"{base}_with_inn"
+    # Ensure .xlsx extension
+    if not output_name.lower().endswith(".xlsx"):
+        output_name += ".xlsx"
+
     filepath = os.path.join(UPLOAD_DIR, filename)
     if not os.path.exists(filepath):
         return HTMLResponse("Файл не найден", status_code=404)
@@ -367,8 +405,7 @@ async def handle_start(request: Request):
     }
 
     # Build result filename
-    base, ext = os.path.splitext(filename)
-    result_name = f"{base}_with_inn.csv"
+    result_name = output_name
     result_path = os.path.join(RESULT_DIR, result_name)
 
     df = read_file(filepath)
@@ -388,6 +425,7 @@ async def handle_start(request: Request):
         try:
             result = await process_dataframe(
                 df, result_path, col_fio, col_bdate, col_passport, col_docdt,
+                col_inn=col_inn,
                 on_progress=on_progress,
                 on_captcha=on_captcha,
                 stop_event=stop_event,
@@ -466,7 +504,7 @@ async def handle_download(request: Request):
     filepath = os.path.join(RESULT_DIR, filename)
     if not os.path.exists(filepath):
         return HTMLResponse("Файл не найден", status_code=404)
-    return FileResponse(filepath, filename=filename, media_type="text/csv")
+    return FileResponse(filepath, filename=filename, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 # ── App ──────────────────────────────────────────────────────────
