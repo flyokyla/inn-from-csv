@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(python:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_file_upload",
+      "mcp__playwright__browser_close"
     ]
   }
 }

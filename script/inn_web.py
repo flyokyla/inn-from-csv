@@ -79,6 +79,7 @@ STYLE = """
   .captcha-alert p { margin-bottom: 12px; font-weight: 600; }
   .actions { display: flex; gap: 12px; margin-top: 24px; align-items: center; }
   .filename { font-size: 13px; color: #666; margin-top: 8px; }
+  .footer { text-align: center; color: #999; font-size: 12px; padding: 24px 0; }
 </style>
 """
 
@@ -118,7 +119,9 @@ fi.addEventListener('change', () => {{
     document.getElementById('uploadForm').submit();
   }}
 }});
-</script></body></html>""")
+</script>
+<div class="footer">prod. by @fourapm</div>
+</body></html>""")
 
 
 def page_mapping(filename: str, columns: list):
@@ -182,7 +185,9 @@ for (const [selName, hints] of Object.entries(selects)) {{
     }}
   }}
 }}
-</script></body></html>""")
+</script>
+<div class="footer">prod. by @fourapm</div>
+</body></html>""")
 
 
 def page_progress(task_id: str):
@@ -204,6 +209,10 @@ def page_progress(task_id: str):
     <div class="captcha-alert" id="captchaAlert">
       <p>Обнаружена капча! Решите её в окне браузера Playwright, затем нажмите кнопку ниже.</p>
       <button onclick="captchaDone()" class="btn-success">Капча решена, продолжить</button>
+    </div>
+
+    <div id="stopArea" style="margin: 16px 0;">
+      <button id="stopBtn" class="btn-danger" onclick="stopProcessing()">Закончить</button>
     </div>
 
     <div class="actions" id="actionsArea" style="display:none">
@@ -273,6 +282,7 @@ es.addEventListener("done", (e) => {{
   document.getElementById('statusText').textContent = "Готово!";
   document.getElementById('bar').style.width = "100%";
   document.getElementById('captchaAlert').style.display = "none";
+  document.getElementById('stopArea').style.display = "none";
   const a = document.getElementById('actionsArea');
   a.style.display = "flex";
   document.getElementById('downloadLink').href = "/download/" + d.result_file;
@@ -288,7 +298,16 @@ function captchaDone() {{
   fetch("/captcha-done/" + taskId, {{ method: "POST" }});
   document.getElementById('captchaAlert').style.display = "none";
 }}
-</script></body></html>""")
+
+function stopProcessing() {{
+  fetch("/stop/" + taskId, {{ method: "POST" }}).then(r => r.json()).then(d => {{
+    document.getElementById('stopBtn').disabled = true;
+    document.getElementById('stopBtn').textContent = "Останавливается...";
+  }});
+}}
+</script>
+<div class="footer">prod. by @fourapm</div>
+</body></html>""")
 
 
 # ── Route handlers ───────────────────────────────────────────────
@@ -426,6 +445,14 @@ async def handle_progress_sse(request: Request):
     return EventSourceResponse(event_generator())
 
 
+async def handle_stop(request: Request):
+    task_id = request.path_params["task_id"]
+    task = tasks.get(task_id)
+    if task:
+        task["stop_event"].set()
+    return JSONResponse({"ok": True})
+
+
 async def handle_captcha_done(request: Request):
     task_id = request.path_params["task_id"]
     task = tasks.get(task_id)
@@ -452,6 +479,7 @@ app = Starlette(
         Route("/start", handle_start, methods=["POST"]),
         Route("/progress-page/{task_id}", handle_progress_page),
         Route("/progress/{task_id}", handle_progress_sse),
+        Route("/stop/{task_id}", handle_stop, methods=["POST"]),
         Route("/captcha-done/{task_id}", handle_captcha_done, methods=["POST"]),
         Route("/download/{filename}", handle_download),
     ],
