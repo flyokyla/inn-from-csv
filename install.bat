@@ -1,11 +1,11 @@
 @echo off
 chcp 65001 >nul 2>&1
 echo ========================================
-echo   ИНН Парсер — Установка зависимостей
+echo   ИНН Парсер — Установка зависимостей - сосал?
 echo ========================================
 echo.
 
-:: Check Python — try "python" first, then "py"
+:: Detect Python command — try "python" first, then "py"
 set PYTHON_CMD=
 python --version >nul 2>&1
 if not errorlevel 1 set PYTHON_CMD=python
@@ -15,7 +15,7 @@ if not defined PYTHON_CMD (
 )
 if not defined PYTHON_CMD goto :no_python
 
-echo Найден Python: %PYTHON_CMD%
+echo Найден: %PYTHON_CMD%
 %PYTHON_CMD% --version
 
 echo.
