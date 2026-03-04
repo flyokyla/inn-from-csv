@@ -17,7 +17,7 @@ if not defined PYTHON_CMD goto :no_python
 echo Найден: %PYTHON_CMD%
 echo.
 echo Удаляю пакеты...
-%PYTHON_CMD% -m pip uninstall -y pandas playwright starlette uvicorn sse-starlette openpyxl
+%PYTHON_CMD% -m pip uninstall -y pandas playwright starlette uvicorn sse-starlette openpyxl python-multipart
 echo.
 echo Готово! Теперь запустите install.bat для чистой установки.
 echo.
